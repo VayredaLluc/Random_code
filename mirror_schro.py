@@ -122,12 +122,14 @@ def psi_momentum(Nx,Nt,psi,dx,dt,k_lim):
     psi_k=np.zeros((Nx,Nt),dtype=np.complex128)
     integ=np.zeros((Nx,Nt),dtype=np.complex128)
     
+    print('u here')
     
     for t in range(Nt):
         for i in range(Nx):
             integ[:,t]=np.exp(-1j*k[i]*x[:])*psi[:,t]/(np.sqrt(2*pi))
             psi_k[i,t]=trapezis_1D(integ[:,t],dx)
             
+        print(t)   
             
     return psi_k
             
@@ -178,9 +180,11 @@ psi_0=psi_0(Nx, x0, p0, dev, dx)
 V=pot_wall(Nx, x0_barr, pot_max, dev_barr, dx)
 
 psi=psi_ev_ck(Nx, Nt, psi_0, V, dx, dt)
+print('evo done')
 
 for t in range(Nt):
     prob_x[:,t]=prob_dens(psi[:,t])
+print('prob calc done')
 
 
 '''    
@@ -221,6 +225,8 @@ for j in range(200):
     
 
 max_y=1.5*np.max(prob_x)
+
+'''
 def update(frame):
     t=frame
     prob_x_t[:]=prob_x[:,t]
@@ -240,10 +246,135 @@ anim = ani.FuncAnimation(fig, update,
                                frames = Nt, 
                                blit = False, interval=1/60)
 
-anim.save('tunnel_effect.mp4', writer=writer)
+anim.save('prob_tunnel_effect.mp4', writer=writer)
+'''
 
 
+'''
+y_min=np.min(np.real(psi))
+y_max=np.max(np.real(psi))
+print(y_min,y_max)
+
+z_min=np.min(np.imag(psi))
+z_max=np.max(np.imag(psi))
+print(z_min,z_max)
+
+fig = plt.figure()
+
+fig.set_size_inches(10, 10)
+
+ax = fig.add_subplot(111,projection='3d')
+
+def update(frame):
+    t=int(frame/2)
+    print(t)
+    
+    ax.cla()
+    ax.set_xlim(x[0],x[Nx-1])
+    ax.set_ylim(y_min,y_max)
+    ax.set_zlim(z_min,z_max)
+    ax.plot3D(x, np.real(psi[:,t]), np.imag(psi[:,t]))
+    ax.scatter3D(0.,0.,0.)
+    
 
 
+Writer = ani.writers['ffmpeg']
+writer = Writer(fps=60, metadata=dict(artist='Me'), bitrate=1800)
+
+anim = ani.FuncAnimation(fig, update, 
+                               frames = 2*Nt, 
+                               blit = False, interval=1/60)
+
+anim.save('wave_tunnel_effect.mp4', writer=writer)
+'''
+
+Nt_r=int(Nt/3)#Nt/3
+
+A=6
+
+psi_k=psi_momentum(Nx, Nt_r, psi, dx, dt, k_lim)
+
+prob_k=prob_dens(psi_k)
+prob_x=prob_dens(psi)
+
+print('probs done')
+
+phase_space_cont=np.zeros((Nx,Nx,2))
+phase_space_evo=np.zeros((Nx,Nx))
+phase_space_evo[:,:]=np.tensordot(prob_x[:,0],prob_k[:,0],axes=0)
+phase_space_cont[:,:,0]=phase_space_evo[:,:]
+
+print('fig1')
+
+fig1 = plt.figure()
+
+ax1 = fig1.add_subplot()
+
+def update1(frame):
+    t=int(frame)
+    print(t)
+    
+    for i in range(A):
+        phase_space_evo[:,:]=np.tensordot(prob_x[:,t*A+i],
+                                          prob_k[:,t*A+i],axes=0)
+    
+    ax1.imshow(phase_space_evo[:,:].transpose(),origin='lower',
+               extent=(-dx*(Nx-1)/2,dx*(Nx-1)/2,-k_lim/10,+k_lim/10)
+           ,interpolation='gaussian',aspect='auto')
+    
+
+
+fig1.set_size_inches(8, 8)
+    
+
+Writer = ani.writers['ffmpeg']
+writer = Writer(fps=60, metadata=dict(artist='Me'), bitrate=1800)
+
+anim = ani.FuncAnimation(fig1, update1, 
+                               frames = int(Nt_r/A), 
+                               blit = False, interval=1/60)
+
+anim.save('phase_space_evo.mp4', writer=writer, dpi=100)
+
+fig2 = plt.figure()
+
+ax2 = fig2.add_subplot()
+
+print('fig2')
+
+def update2(frame):
+    t=int(frame)
+    print(t)
+    
+    ax2.imshow(phase_space_cont[:,:,0].transpose(),origin='lower',
+               extent=(-dx*(Nx-1)/2,dx*(Nx-1)/2,-k_lim/10,+k_lim/10)
+           ,interpolation='gaussian',aspect='auto')
+    
+    for i in range(A):
+        phase_space_cont[:,:,1]=np.tensordot(prob_x[:,t*A+i],
+                                             prob_k[:,t*A+i],axes=0)\
+                            +phase_space_cont[:,:,0]
+        
+        phase_space_cont[:,:,0]=phase_space_cont[:,:,1]
+    
+    
 
     
+    
+    
+    
+fig2.set_size_inches(8, 8)
+
+Writer = ani.writers['ffmpeg']
+writer = Writer(fps=30, metadata=dict(artist='Me'), bitrate=1800)
+
+anim = ani.FuncAnimation(fig2, update2, 
+                               frames = int(Nt_r/A), 
+                               blit = False, interval=1/30)
+
+anim.save('phase_space_cont.mp4', writer=writer, dpi=100)
+    
+
+    
+    
+   
